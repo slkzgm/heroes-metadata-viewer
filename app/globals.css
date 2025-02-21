@@ -21,3 +21,35 @@ body {
   image-rendering: pixelated;
 }
 
+/* Animation pour le loader */
+@keyframes pulse-border {
+  0% {
+    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(250, 204, 21, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0);
+  }
+}
+
+.pulse-border {
+  animation: pulse-border 2s infinite;
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.float-animation {
+  animation: float 2s ease-in-out infinite;
+}
