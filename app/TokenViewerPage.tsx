@@ -1,6 +1,6 @@
 "use client"
 
-import TokenViewer from '@/components/TokenViewer';
+import TokenViewer from "@/components/TokenViewer"
 
 export default function TokenViewerPage() {
   return (
