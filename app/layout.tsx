@@ -7,21 +7,16 @@ const pixelFont = Press_Start_2P({ subsets: ["latin"], weight: "400" })
 export const metadata = {
   title: "Onchain Heroes Metadata Viewer",
   description: "View metadata for Onchain Heroes NFTs",
-    generator: 'v0.dev'
 }
 
 export default function RootLayout({
-  children,
-}: {
+                                     children,
+                                   }: {
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+      <html lang="en">
       <body className={pixelFont.className}>{children}</body>
-    </html>
+      </html>
   )
 }
-
-
-
-import './globals.css'
