@@ -20,7 +20,7 @@ export async function GET(
 
         // Query the subgraph for heroes owned by this wallet
         const response = await fetch(
-            "https://api.studio.thegraph.com/query/507/och/version/latest",
+            process.env.THEGRAPH_URL,
             {
                 method: "POST",
                 headers: {
