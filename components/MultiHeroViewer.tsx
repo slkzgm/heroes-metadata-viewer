@@ -139,18 +139,19 @@ export default function MultiHeroViewer() {
     }
 
     const refreshHeroes = async () => {
-        setLoading(true); // Montrer que le chargement est en cours
-
+        setLoading(true);
         try {
-            // Ajouter un paramètre de cache-busting pour éviter le cache du navigateur
-            const timestamp = new Date().getTime();
-            const response = await fetch(`/api/wallet/${walletAddress}?_t=${timestamp}`, {
-                // Indiquer au navigateur de ne pas utiliser le cache
+            // Créer une URL avec un paramètre unique pour contourner le cache
+            const uniqueUrl = new URL(`/api/wallet/${walletAddress}`, window.location.origin);
+            uniqueUrl.searchParams.append('nocache', Date.now().toString());
+
+            const response = await fetch(uniqueUrl, {
                 cache: 'no-store',
                 headers: {
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
                     'Pragma': 'no-cache',
-                    'Expires': '0'
+                    'Expires': '0',
+                    'If-None-Match': ''
                 }
             });
 
@@ -160,12 +161,8 @@ export default function MultiHeroViewer() {
 
             const data = await response.json();
             setHeroes(data.heroes);
-
-            // Vider et recharger les métadonnées
-            setHeroesMetadata({});
             await fetchHeroesMetadata(data.heroes);
 
-            console.log("Données fraîchement chargées:", data.heroes);
         } catch (err) {
             console.error("Erreur lors du rafraîchissement:", err);
             setError("Erreur lors du rafraîchissement des données");
