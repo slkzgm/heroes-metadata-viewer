@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
+import HeroTimer from '@/components/HeroTimer';
 
 interface Attribute {
   trait_type: string
@@ -371,25 +372,10 @@ export default function TokenViewer() {
                               </div>
 
                               {/* Progress bar for training cooldown */}
-                              <div className="mt-2">
-                                <div className="flex justify-between text-xs mb-1">
-                                  <span>Cooldown Progress</span>
-                                  <span>{Math.round(trainingProgress)}%</span>
-                                </div>
-                                <div className="w-full bg-gray-600 rounded-full h-2.5">
-                                  <div
-                                      className={`h-2.5 rounded-full ${isTrainingAvailable ? 'bg-green-500' : 'bg-yellow-400'}`}
-                                      style={{ width: `${trainingProgress}%` }}
-                                  ></div>
-                                </div>
-                                {isTrainingAvailable && (
-                                    <div className="text-center mt-2">
-                                <span className="inline-block px-2 py-1 bg-green-600 rounded-md text-xs animate-pulse">
-                                  Ready to train!
-                                </span>
-                                    </div>
-                                )}
-                              </div>
+                              <HeroTimer
+                                  stakeTime={onchainData.lastTraining.timestamp.toString()}
+                                  cooldownHours={TRAINING_COOLDOWN_HOURS}
+                              />
                             </div>
                           </div>
                       ) : (
