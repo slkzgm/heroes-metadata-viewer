@@ -24,6 +24,7 @@ interface Hero {
     lastClaimTime: string
     isStaked: boolean
     metadata?: HeroMetadata
+    lastUpgradeTime: string
 }
 
 interface WalletHeroes {
@@ -143,12 +144,12 @@ export default function MultiHeroViewer() {
     }
 
     // Check if hero is available for training
-    const isHeroAvailable = (stakeTime: string) => {
-        if (!stakeTime) return true
+    const isHeroAvailable = (lastUpgradeTime: string) => {
+        if (!lastUpgradeTime) return true
 
         const now = Date.now()
-        const stakeTimeMs = parseInt(stakeTime) * 1000
-        const nextTrainingMs = stakeTimeMs + TRAINING_COOLDOWN_MS
+        const upgradeTime = parseInt(lastUpgradeTime) * 1000
+        const nextTrainingMs = upgradeTime + TRAINING_COOLDOWN_MS
 
         return now >= nextTrainingMs
     }
@@ -170,9 +171,9 @@ export default function MultiHeroViewer() {
             // Apply availability filter
             let availabilityMatch = true
             if (filterOption === "available") {
-                availabilityMatch = isHeroAvailable(hero.stakeTime)
+                availabilityMatch = isHeroAvailable(hero.lastUpgradeTime)
             } else if (filterOption === "cooldown") {
-                availabilityMatch = !isHeroAvailable(hero.stakeTime)
+                availabilityMatch = !isHeroAvailable(hero.lastUpgradeTime)
             }
 
             return searchMatch && availabilityMatch
@@ -182,15 +183,15 @@ export default function MultiHeroViewer() {
             if (sortOption === "level") {
                 return b.level - a.level
             } else if (sortOption === "cooldown") {
-                const aAvailable = isHeroAvailable(a.stakeTime)
-                const bAvailable = isHeroAvailable(b.stakeTime)
+                const aAvailable = isHeroAvailable(a.lastUpgradeTime)
+                const bAvailable = isHeroAvailable(b.lastUpgradeTime)
 
                 if (aAvailable && !bAvailable) return -1
                 if (!aAvailable && bAvailable) return 1
 
                 // If both are in cooldown or both are available, sort by stake time
                 if (!aAvailable && !bAvailable) {
-                    return parseInt(b.stakeTime) - parseInt(a.stakeTime)
+                    return parseInt(b.lastUpgradeTime) - parseInt(a.lastUpgradeTime)
                 }
 
                 return parseInt(a.id) - parseInt(b.id)
@@ -338,7 +339,7 @@ export default function MultiHeroViewer() {
                             </h3>
 
                             {/* Training status with real-time updates */}
-                            <HeroTimer stakeTime={hero.stakeTime} cooldownHours={TRAINING_COOLDOWN_HOURS} />
+                            <HeroTimer upgradeTime={hero.lastUpgradeTime} cooldownHours={TRAINING_COOLDOWN_HOURS} />
                         </div>
                     ))}
                 </div>
@@ -385,16 +386,16 @@ export default function MultiHeroViewer() {
                                 <div className="mt-1">
                                     <div className="flex justify-between text-xs mb-1">
                                         <span>Next Training:</span>
-                                        <span className={isHeroAvailable(hero.stakeTime) ? "text-green-400 font-bold" : "text-orange-400"}>
-                      {isHeroAvailable(hero.stakeTime) ? "Available Now!" : "Cooldown"}
+                                        <span className={isHeroAvailable(hero.lastUpgradeTime) ? "text-green-400 font-bold" : "text-orange-400"}>
+                      {isHeroAvailable(hero.lastUpgradeTime) ? "Available Now!" : "Cooldown"}
                     </span>
                                     </div>
                                     <div className="w-full bg-gray-600 rounded-full h-1.5 overflow-hidden">
                                         <div
-                                            className={isHeroAvailable(hero.stakeTime) ? 'h-1.5 rounded-full bg-green-500 w-full' : 'h-1.5 rounded-full bg-yellow-400'}
+                                            className={isHeroAvailable(hero.lastUpgradeTime) ? 'h-1.5 rounded-full bg-green-500 w-full' : 'h-1.5 rounded-full bg-yellow-400'}
                                             style={{
-                                                width: isHeroAvailable(hero.stakeTime) ? '100%' :
-                                                    `${calculateProgress(hero.stakeTime)}%`
+                                                width: isHeroAvailable(hero.lastUpgradeTime) ? '100%' :
+                                                    `${calculateProgress(hero.lastUpgradeTime)}%`
                                             }}
                                         ></div>
                                     </div>

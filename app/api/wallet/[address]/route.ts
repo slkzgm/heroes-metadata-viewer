@@ -32,6 +32,7 @@ export async function GET(
                 stakeTime
                 lastClaimTime
                 isStaked
+                lastUpgradeTime
               }
             }
           `,

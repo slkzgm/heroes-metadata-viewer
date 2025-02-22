@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import HeroTimer from '@/components/HeroTimer';
+import HeroTimer from "./HeroTimer"
 
 interface Attribute {
   trait_type: string
@@ -19,7 +19,7 @@ interface TokenMetadata {
 }
 
 interface OnchainData {
-  lastTraining: {
+  lastUpgradeTime: {
     timestamp: number
     milliseconds?: number
     formatted?: string | null
@@ -35,15 +35,10 @@ export default function TokenViewer() {
   const [onchainData, setOnchainData] = useState<OnchainData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [timeAgo, setTimeAgo] = useState<string>("")
-  const [nextTrainingTime, setNextTrainingTime] = useState<string>("")
-  const [isTrainingAvailable, setIsTrainingAvailable] = useState(false)
-  const [trainingProgress, setTrainingProgress] = useState(0)
   const [activeTab, setActiveTab] = useState<TabType>("metadata")
 
   // Training cooldown in hours
   const TRAINING_COOLDOWN_HOURS = 12;
-  const TRAINING_COOLDOWN_MS = TRAINING_COOLDOWN_HOURS * 60 * 60 * 1000;
 
   // Load preferred tab from localStorage on initial render
   useEffect(() => {
@@ -98,45 +93,6 @@ export default function TokenViewer() {
     await fetchMetadata(randomId.toString())
   }
 
-  // Update relative time and next training time every minute
-  useEffect(() => {
-    if (!onchainData?.lastTraining) return;
-
-    const updateTimes = () => {
-      const now = Date.now();
-      const lastTrainingMs = onchainData.lastTraining.timestamp * 1000;
-      const nextTrainingMs = lastTrainingMs + TRAINING_COOLDOWN_MS;
-
-      // Update time ago
-      setTimeAgo(calculateTimeAgo(lastTrainingMs));
-
-      // Check if next training is available
-      const isAvailable = now >= nextTrainingMs;
-      setIsTrainingAvailable(isAvailable);
-
-      // Calculate next training time
-      if (isAvailable) {
-        setNextTrainingTime("Available now!");
-      } else {
-        setNextTrainingTime(calculateTimeUntil(nextTrainingMs));
-      }
-
-      // Calculate progress (0-100%)
-      const elapsedSinceLast = now - lastTrainingMs;
-      const progress = Math.min(100, Math.max(0, (elapsedSinceLast / TRAINING_COOLDOWN_MS) * 100));
-      setTrainingProgress(progress);
-    };
-
-    // Initial update
-    updateTimes();
-
-    // Update every minute
-    const interval = setInterval(updateTimes, 60000);
-
-    // Cleanup
-    return () => clearInterval(interval);
-  }, [onchainData]);
-
   // Format date with error handling
   const formatDateTime = (timestamp: number | undefined | null) => {
     try {
@@ -171,78 +127,6 @@ export default function TokenViewer() {
     } catch (error) {
       console.error("Error formatting date:", error);
       return "Formatting error";
-    }
-  };
-
-  // Calculate relative time (how long ago) with error handling
-  const calculateTimeAgo = (timestampMs: number) => {
-    try {
-      if (!timestampMs) return "";
-
-      const now = Date.now();
-      const elapsed = now - timestampMs;
-
-      if (elapsed < 0) {
-        // If timestamp is in the future
-        return calculateTimeUntil(timestampMs, true);
-      } else {
-        // If timestamp is in the past (normal for "ago")
-        const seconds = Math.floor(elapsed / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const hours = Math.floor(minutes / 60);
-        const days = Math.floor(hours / 24);
-
-        if (days > 0) {
-          return `${days} day${days > 1 ? 's' : ''} ago`;
-        } else if (hours > 0) {
-          return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-        } else if (minutes > 0) {
-          return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-        } else {
-          return `${seconds} second${seconds !== 1 ? 's' : ''} ago`;
-        }
-      }
-    } catch (error) {
-      console.error("Error calculating relative time:", error);
-      return "";
-    }
-  };
-
-  // Calculate time until a future timestamp
-  const calculateTimeUntil = (timestampMs: number, includePrefix = false) => {
-    try {
-      if (!timestampMs) return "";
-
-      const now = Date.now();
-      const timeToGo = timestampMs - now;
-
-      if (timeToGo <= 0) {
-        return "Now";
-      }
-
-      const seconds = Math.floor(timeToGo / 1000);
-      const minutes = Math.floor(seconds / 60);
-      const hours = Math.floor(minutes / 60);
-      const days = Math.floor(hours / 24);
-
-      let result = '';
-      if (days > 0) {
-        result = `${days} day${days > 1 ? 's' : ''}`;
-      } else if (hours > 0) {
-        result = `${hours} hour${hours > 1 ? 's' : ''}`;
-      } else if (minutes > 0) {
-        result = `${minutes} minute${minutes > 1 ? 's' : ''}`;
-      } else {
-        result = `${seconds} second${seconds !== 1 ? 's' : ''}`;
-      }
-
-      if (includePrefix) {
-        return `in ${result}`;
-      }
-      return result;
-    } catch (error) {
-      console.error("Error calculating time until:", error);
-      return "";
     }
   };
 
@@ -318,10 +202,10 @@ export default function TokenViewer() {
                         activeTab === "training"
                             ? "bg-yellow-400 text-black"
                             : "bg-gray-700 text-yellow-400 hover:bg-gray-600"
-                    } rounded-t-lg ${onchainData?.lastTraining && isTrainingAvailable ? 'relative' : ''}`}
+                    } rounded-t-lg ${onchainData?.lastUpgradeTime && onchainData?.lastUpgradeTime.timestamp ? 'relative' : ''}`}
                 >
                   Training
-                  {onchainData?.lastTraining && isTrainingAvailable && (
+                  {onchainData?.lastUpgradeTime && onchainData?.lastUpgradeTime.timestamp && (
                       <span className="absolute top-0 right-0 transform -translate-y-1/2 translate-x-1/2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
                   )}
                 </button>
@@ -345,35 +229,22 @@ export default function TokenViewer() {
                 {/* Training Tab */}
                 {activeTab === "training" && (
                     <div>
-                      {onchainData && onchainData.lastTraining ? (
+                      {onchainData && onchainData.lastUpgradeTime ? (
                           <div className="bg-gray-700 p-3 rounded border border-yellow-400">
                             <div className="flex flex-col">
                               <div className="mb-2">
                                 <span className="font-medium text-yellow-400">Last Training:</span>
                                 <br />
-                                <span>{formatDateTime(onchainData.lastTraining.timestamp)}</span>
+                                <span>{formatDateTime(onchainData.lastUpgradeTime.timestamp)}</span>
                               </div>
 
-                              {timeAgo && (
-                                  <div className="mb-2">
-                                    <span className="font-medium text-yellow-400">Relative:</span>
-                                    <br />
-                                    <span className="text-blue-400">{timeAgo}</span>
-                                  </div>
-                              )}
-
-                              {/* Next training status */}
                               <div className="mb-2">
-                                <span className="font-medium text-yellow-400">Next Training:</span>
-                                <br />
-                                <span className={isTrainingAvailable ? "text-green-400 font-bold" : "text-orange-400"}>
-                              {nextTrainingTime}
-                            </span>
+                                <span className="font-medium text-yellow-400">Training Status:</span>
                               </div>
 
-                              {/* Progress bar for training cooldown */}
+                              {/* Utiliser le component HeroTimer pour le cooldown */}
                               <HeroTimer
-                                  stakeTime={onchainData.lastTraining.timestamp.toString()}
+                                  upgradeTime={onchainData.lastUpgradeTime.timestamp.toString()}
                                   cooldownHours={TRAINING_COOLDOWN_HOURS}
                               />
                             </div>

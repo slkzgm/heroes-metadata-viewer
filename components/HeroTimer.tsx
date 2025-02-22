@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react"
 
 interface HeroTimerProps {
-    stakeTime: string
+    upgradeTime: string
     cooldownHours: number
 }
 
-export default function HeroTimer({ stakeTime, cooldownHours = 12 }: HeroTimerProps) {
+export default function HeroTimer({ upgradeTime, cooldownHours = 12 }: HeroTimerProps) {
     const [timeRemaining, setTimeRemaining] = useState("")
     const [isAvailable, setIsAvailable] = useState(false)
     const [progressPercentage, setProgressPercentage] = useState(0)
@@ -17,7 +17,7 @@ export default function HeroTimer({ stakeTime, cooldownHours = 12 }: HeroTimerPr
     useEffect(() => {
         // Update timer every second
         const updateTimer = () => {
-            if (!stakeTime) {
+            if (!upgradeTime) {
                 setIsAvailable(true)
                 setTimeRemaining("Available")
                 setProgressPercentage(100)
@@ -25,7 +25,7 @@ export default function HeroTimer({ stakeTime, cooldownHours = 12 }: HeroTimerPr
             }
 
             const now = Date.now()
-            const stakeTimeMs = parseInt(stakeTime) * 1000
+            const stakeTimeMs = parseInt(upgradeTime) * 1000
             const nextTrainingMs = stakeTimeMs + COOLDOWN_MS
 
             // Check if training is available
@@ -71,7 +71,7 @@ export default function HeroTimer({ stakeTime, cooldownHours = 12 }: HeroTimerPr
 
         // Clean up
         return () => clearInterval(interval)
-    }, [stakeTime, COOLDOWN_MS])
+    }, [upgradeTime, COOLDOWN_MS])
 
     return (
         <div className="mt-2">
