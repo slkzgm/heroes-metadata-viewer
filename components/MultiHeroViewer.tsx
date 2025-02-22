@@ -20,11 +20,9 @@ interface HeroMetadata {
 interface Hero {
     id: string
     level: number
-    stakeTime: string
-    lastClaimTime: string
-    isStaked: boolean
+    lastUpgrade: string
+    stakedSince: string
     metadata?: HeroMetadata
-    lastUpgradeTime: string
 }
 
 interface WalletHeroes {
@@ -48,9 +46,10 @@ export default function MultiHeroViewer() {
     const [filterOption, setFilterOption] = useState<string>("all")
     const [searchTerm, setSearchTerm] = useState<string>("")
 
-    // Training cooldown in hours (same as in TokenViewer)
+    // Training cooldown in hours
     const TRAINING_COOLDOWN_HOURS = 12
-    const TRAINING_COOLDOWN_MS = TRAINING_COOLDOWN_HOURS * 60 * 60 * 1000
+    // Unstake cooldown in hours
+    const UNSTAKE_COOLDOWN_HOURS = 6
 
     // Load heroes when the component mounts if we have a wallet address
     useEffect(() => {
@@ -144,14 +143,25 @@ export default function MultiHeroViewer() {
     }
 
     // Check if hero is available for training
-    const isHeroAvailable = (lastUpgradeTime: string) => {
-        if (!lastUpgradeTime) return true
+    const isTrainingAvailable = (lastUpgrade: string) => {
+        if (!lastUpgrade) return true
 
         const now = Date.now()
-        const upgradeTime = parseInt(lastUpgradeTime) * 1000
-        const nextTrainingMs = upgradeTime + TRAINING_COOLDOWN_MS
+        const lastUpgradeMs = parseInt(lastUpgrade) * 1000
+        const nextTrainingMs = lastUpgradeMs + (TRAINING_COOLDOWN_HOURS * 60 * 60 * 1000)
 
         return now >= nextTrainingMs
+    }
+
+    // Check if hero is available for unstaking
+    const isUnstakeAvailable = (stakedSince: string) => {
+        if (!stakedSince) return true
+
+        const now = Date.now()
+        const stakedSinceMs = parseInt(stakedSince) * 1000
+        const unstakeAvailableMs = stakedSinceMs + (UNSTAKE_COOLDOWN_HOURS * 60 * 60 * 1000)
+
+        return now >= unstakeAvailableMs
     }
 
     // Toggle view mode
@@ -171,9 +181,9 @@ export default function MultiHeroViewer() {
             // Apply availability filter
             let availabilityMatch = true
             if (filterOption === "available") {
-                availabilityMatch = isHeroAvailable(hero.lastUpgradeTime)
+                availabilityMatch = isTrainingAvailable(hero.lastUpgrade)
             } else if (filterOption === "cooldown") {
-                availabilityMatch = !isHeroAvailable(hero.lastUpgradeTime)
+                availabilityMatch = !isTrainingAvailable(hero.lastUpgrade)
             }
 
             return searchMatch && availabilityMatch
@@ -183,15 +193,15 @@ export default function MultiHeroViewer() {
             if (sortOption === "level") {
                 return b.level - a.level
             } else if (sortOption === "cooldown") {
-                const aAvailable = isHeroAvailable(a.lastUpgradeTime)
-                const bAvailable = isHeroAvailable(b.lastUpgradeTime)
+                const aAvailable = isTrainingAvailable(a.lastUpgrade)
+                const bAvailable = isTrainingAvailable(b.lastUpgrade)
 
                 if (aAvailable && !bAvailable) return -1
                 if (!aAvailable && bAvailable) return 1
 
-                // If both are in cooldown or both are available, sort by stake time
+                // If both are in cooldown or both are available, sort by last upgrade time
                 if (!aAvailable && !bAvailable) {
-                    return parseInt(b.lastUpgradeTime) - parseInt(a.lastUpgradeTime)
+                    return parseInt(b.lastUpgrade) - parseInt(a.lastUpgrade)
                 }
 
                 return parseInt(a.id) - parseInt(b.id)
@@ -284,7 +294,7 @@ export default function MultiHeroViewer() {
                             >
                                 <option value="id">Sort by ID</option>
                                 <option value="level">Sort by Level (High to Low)</option>
-                                <option value="cooldown">Sort by Cooldown</option>
+                                <option value="cooldown">Sort by Training Cooldown</option>
                             </select>
                         </div>
 
@@ -338,8 +348,21 @@ export default function MultiHeroViewer() {
                                 {heroesMetadata[hero.id]?.name || `Hero #${hero.id}`}
                             </h3>
 
-                            {/* Training status with real-time updates */}
-                            <HeroTimer upgradeTime={hero.lastUpgradeTime} cooldownHours={TRAINING_COOLDOWN_HOURS} />
+                            {/* Training cooldown timer */}
+                            <HeroTimer
+                                timestamp={hero.lastUpgrade}
+                                cooldownHours={TRAINING_COOLDOWN_HOURS}
+                                timerType="training"
+                            />
+
+                            {/* Unstake cooldown timer */}
+                            <div className="mt-4">
+                                <HeroTimer
+                                    timestamp={hero.stakedSince}
+                                    cooldownHours={UNSTAKE_COOLDOWN_HOURS}
+                                    timerType="unstake"
+                                />
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -382,22 +405,40 @@ export default function MultiHeroViewer() {
                                     </div>
                                 </div>
 
-                                {/* Training status - compact version */}
-                                <div className="mt-1">
-                                    <div className="flex justify-between text-xs mb-1">
-                                        <span>Next Training:</span>
-                                        <span className={isHeroAvailable(hero.lastUpgradeTime) ? "text-green-400 font-bold" : "text-orange-400"}>
-                      {isHeroAvailable(hero.lastUpgradeTime) ? "Available Now!" : "Cooldown"}
-                    </span>
+                                {/* Compact timers */}
+                                <div className="grid grid-cols-2 gap-2 mt-1">
+                                    <div>
+                                        <div className="flex justify-between text-xs mb-1">
+                                            <span>Training:</span>
+                                            <span className={isTrainingAvailable(hero.lastUpgrade) ? "text-green-400 font-bold" : "text-orange-400"}>
+                        {isTrainingAvailable(hero.lastUpgrade) ? "Ready" : calculateTimeLeft(hero.lastUpgrade, TRAINING_COOLDOWN_HOURS)}
+                      </span>
+                                        </div>
+                                        <div className="w-full bg-gray-600 rounded-full h-1.5 overflow-hidden">
+                                            <div
+                                                className="h-1.5 rounded-full bg-yellow-400"
+                                                style={{
+                                                    width: `${calculateProgress(hero.lastUpgrade, TRAINING_COOLDOWN_HOURS)}%`
+                                                }}
+                                            ></div>
+                                        </div>
                                     </div>
-                                    <div className="w-full bg-gray-600 rounded-full h-1.5 overflow-hidden">
-                                        <div
-                                            className={isHeroAvailable(hero.lastUpgradeTime) ? 'h-1.5 rounded-full bg-green-500 w-full' : 'h-1.5 rounded-full bg-yellow-400'}
-                                            style={{
-                                                width: isHeroAvailable(hero.lastUpgradeTime) ? '100%' :
-                                                    `${calculateProgress(hero.lastUpgradeTime)}%`
-                                            }}
-                                        ></div>
+
+                                    <div>
+                                        <div className="flex justify-between text-xs mb-1">
+                                            <span>Unstake:</span>
+                                            <span className={isUnstakeAvailable(hero.stakedSince) ? "text-green-400 font-bold" : "text-blue-400"}>
+                        {isUnstakeAvailable(hero.stakedSince) ? "Ready" : calculateTimeLeft(hero.stakedSince, UNSTAKE_COOLDOWN_HOURS)}
+                      </span>
+                                        </div>
+                                        <div className="w-full bg-gray-600 rounded-full h-1.5 overflow-hidden">
+                                            <div
+                                                className="h-1.5 rounded-full bg-blue-400"
+                                                style={{
+                                                    width: `${calculateProgress(hero.stakedSince, UNSTAKE_COOLDOWN_HOURS)}%`
+                                                }}
+                                            ></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -409,13 +450,40 @@ export default function MultiHeroViewer() {
     )
 
     // Helper function to calculate progress percentage
-    function calculateProgress(stakeTime: string) {
-        if (!stakeTime) return 100
+    function calculateProgress(timestamp: string, cooldownHours: number) {
+        if (!timestamp) return 100
 
         const now = Date.now()
-        const stakeTimeMs = parseInt(stakeTime) * 1000
-        const elapsedTime = now - stakeTimeMs
+        const timestampMs = parseInt(timestamp) * 1000
+        const cooldownMs = cooldownHours * 60 * 60 * 1000
+        const elapsedTime = now - timestampMs
 
-        return Math.min(100, Math.max(0, (elapsedTime / TRAINING_COOLDOWN_MS) * 100))
+        return Math.min(100, Math.max(0, (elapsedTime / cooldownMs) * 100))
+    }
+
+    // Helper function to calculate time left in a compact format
+    function calculateTimeLeft(timestamp: string, cooldownHours: number) {
+        if (!timestamp) return "Ready"
+
+        const now = Date.now()
+        const timestampMs = parseInt(timestamp) * 1000
+        const availableAtMs = timestampMs + (cooldownHours * 60 * 60 * 1000)
+
+        if (now >= availableAtMs) {
+            return "Ready"
+        }
+
+        const timeToGo = availableAtMs - now
+        const seconds = Math.floor(timeToGo / 1000)
+        const minutes = Math.floor(seconds / 60)
+        const hours = Math.floor(minutes / 60)
+
+        if (hours > 0) {
+            return `${hours}h ${minutes % 60}m`
+        } else if (minutes > 0) {
+            return `${minutes}m`
+        } else {
+            return `${seconds}s`
+        }
     }
 }

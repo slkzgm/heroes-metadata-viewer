@@ -40,16 +40,11 @@ export async function GET(
 
         const isValidTimestamp = timestampInSeconds > minTimestamp && timestampInSeconds < maxTimestamp
 
-        // Construction de la réponse
+        // Construction de la réponse avec le nouveau format
         const onchainData = {
-            lastTraining: {
-                timestamp: timestampInSeconds,
-                milliseconds: timestampInSeconds * 1000,
-                formatted: isValidTimestamp
-                    ? new Date(timestampInSeconds * 1000).toISOString()
-                    : null,
-                isValid: isValidTimestamp
-            }
+            lastUpgrade: isValidTimestamp ? timestampInSeconds : 0,
+            stakedSince: isValidTimestamp ? timestampInSeconds : 0, // On utilise la même valeur pour l'exemple
+            level: 1 // Niveau par défaut, à remplacer par la vraie valeur si disponible
         }
 
         return NextResponse.json(onchainData)

@@ -17,7 +17,7 @@ export async function GET(
 
         // Query the subgraph for heroes owned by this wallet
         const response = await fetch(
-            "https://api.studio.thegraph.com/query/105023/onchain-heroes-subgraph/version/latest",
+            "https://api.studio.thegraph.com/query/507/och/version/latest",
             {
                 method: "POST",
                 headers: {
@@ -26,13 +26,14 @@ export async function GET(
                 body: JSON.stringify({
                     query: `
             query {
-              heroEntities(where: { owner: "${walletAddress}" }) {
-                id
-                level
-                stakeTime
-                lastClaimTime
-                isStaked
-                lastUpgradeTime
+              user(id: "${walletAddress.toLowerCase()}") {
+                heroes {
+                  id
+                  tokenId
+                  lastUpgrade
+                  level
+                  stakedSince
+                }
               }
             }
           `,
@@ -46,21 +47,25 @@ export async function GET(
 
         const data = await response.json()
 
-        const heroesWithBasicInfo = data.data.heroEntities.map((hero: any) => {
-            return {
-                ...hero,
-                metadata: {
-                    name: `Hero #${hero.id}`,
-                    image: `https://api.onchainheroes.xyz/hero/${hero.id}/image`, // On utilise directement l'URL externe
-                    description: "",
-                    attributes: []
-                }
-            }
-        })
+        // Check if user exists and has heroes
+        if (!data.data.user) {
+            return NextResponse.json({
+                walletAddress,
+                heroes: []
+            })
+        }
+
+        // Map heroes to a more usable structure
+        const heroes = data.data.user.heroes.map((hero: any) => ({
+            id: hero.tokenId,
+            level: parseInt(hero.level),
+            lastUpgrade: hero.lastUpgrade,
+            stakedSince: hero.stakedSince
+        }))
 
         return NextResponse.json({
             walletAddress,
-            heroes: heroesWithBasicInfo
+            heroes
         })
     } catch (error: any) {
         console.error(`Error fetching heroes for wallet ${walletAddress}:`, error)
