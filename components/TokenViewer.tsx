@@ -19,8 +19,8 @@ interface TokenMetadata {
 }
 
 interface OnchainData {
-  lastUpgrade: number
-  stakedSince: number
+  lastUpgrade: string
+  stakedSince: string
   level: number
 }
 
@@ -75,12 +75,16 @@ export default function TokenViewer() {
       // Process onchain data
       if (onchainResponse.ok) {
         const data = await onchainResponse.json()
-        // Adapter le format de données
-        setOnchainData({
-          lastUpgrade: data.lastTraining?.timestamp || 0,
-          stakedSince: data.lastTraining?.timestamp || 0, // Utiliser le même timestamp pour l'exemple
-          level: data.level || 1
-        })
+
+        if (data.error) {
+          console.error("Onchain data error:", data.error)
+        } else {
+          setOnchainData({
+            lastUpgrade: data.lastUpgrade,
+            stakedSince: data.stakedSince,
+            level: data.level
+          })
+        }
       }
 
       setTokenId(id)
@@ -236,9 +240,10 @@ export default function TokenViewer() {
                 )}
 
                 {/* Training Tab */}
+                {/* Training Tab */}
                 {activeTab === "training" && (
                     <div>
-                      {onchainData && onchainData.lastUpgrade ? (
+                      {onchainData ? (
                           <div className="bg-gray-700 p-3 rounded border border-yellow-400">
                             <div className="flex flex-col">
                               <div className="mb-2">
