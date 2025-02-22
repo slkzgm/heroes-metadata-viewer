@@ -15,6 +15,9 @@ export async function GET(
             )
         }
 
+        // Ajouter un paramètre de timestamp pour éviter le cache de TheGraph
+        const timestamp = new Date().getTime();
+
         // Query the subgraph for heroes owned by this wallet
         const response = await fetch(
             "https://api.studio.thegraph.com/query/507/och/version/latest",
@@ -22,6 +25,8 @@ export async function GET(
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache"
                 },
                 body: JSON.stringify({
                     query: `
@@ -47,6 +52,9 @@ export async function GET(
 
         const data = await response.json()
 
+        // Log pour le débogage
+        console.log("Données brutes de TheGraph:", data);
+
         // Check if user exists and has heroes
         if (!data.data.user) {
             return NextResponse.json({
@@ -63,10 +71,18 @@ export async function GET(
             stakedSince: hero.stakedSince
         }))
 
-        return NextResponse.json({
+        // Configuration des en-têtes pour éviter la mise en cache de la réponse
+        const responseObj = NextResponse.json({
             walletAddress,
-            heroes
+            heroes,
+            timestamp // Inclure le timestamp pour vérification
         })
+
+        responseObj.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        responseObj.headers.set('Pragma', 'no-cache');
+        responseObj.headers.set('Expires', '0');
+
+        return responseObj;
     } catch (error: any) {
         console.error(`Error fetching heroes for wallet ${walletAddress}:`, error)
         return NextResponse.json(

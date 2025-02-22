@@ -138,9 +138,41 @@ export default function MultiHeroViewer() {
         fetchHeroes(inputAddress)
     }
 
-    const refreshHeroes = () => {
-        fetchHeroes(walletAddress)
-    }
+    const refreshHeroes = async () => {
+        setLoading(true); // Montrer que le chargement est en cours
+
+        try {
+            // Ajouter un paramètre de cache-busting pour éviter le cache du navigateur
+            const timestamp = new Date().getTime();
+            const response = await fetch(`/api/wallet/${walletAddress}?_t=${timestamp}`, {
+                // Indiquer au navigateur de ne pas utiliser le cache
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to fetch wallet data");
+            }
+
+            const data = await response.json();
+            setHeroes(data.heroes);
+
+            // Vider et recharger les métadonnées
+            setHeroesMetadata({});
+            await fetchHeroesMetadata(data.heroes);
+
+            console.log("Données fraîchement chargées:", data.heroes);
+        } catch (err) {
+            console.error("Erreur lors du rafraîchissement:", err);
+            setError("Erreur lors du rafraîchissement des données");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Check if hero is available for training
     const isTrainingAvailable = (lastUpgrade: string) => {
