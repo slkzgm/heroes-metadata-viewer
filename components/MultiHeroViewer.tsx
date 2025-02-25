@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useWallet } from "@/contexts/WalletContext";
 import HeroCard from "./HeroCard";
 import WalletStats from "./WalletStats";
@@ -47,6 +47,10 @@ export default function MultiHeroViewer() {
   const [error, setError] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [forceRefresh, setForceRefresh] = useState(0);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+
+  // Wallet stats for upgradable heroes calculation
+  const [walletBalance, setWalletBalance] = useState<number>(0);
 
   // Sorting and filtering
   const [sortOption, setSortOption] = useState<string>("id");
@@ -98,6 +102,14 @@ export default function MultiHeroViewer() {
 
       const data: WalletHeroes = await response.json();
       setHeroes(data.heroes);
+
+      // Save balance for upgradable heroes filter
+      if (data.balance?.balance) {
+        const balanceInEther = parseFloat(data.balance.balance) / 1e18;
+        setWalletBalance(balanceInEther);
+      } else {
+        setWalletBalance(0);
+      }
 
       // Update the wallet address in context if it's different
       if (address !== walletAddress) {
@@ -188,6 +200,13 @@ export default function MultiHeroViewer() {
 
       const data = await response.json();
       setHeroes(data.heroes);
+
+      // Update wallet balance
+      if (data.balance?.balance) {
+        const balanceInEther = parseFloat(data.balance.balance) / 1e18;
+        setWalletBalance(balanceInEther);
+      }
+
       await fetchHeroesMetadata(data.heroes);
 
       // Increment refresh counter to trigger WalletStats refresh
@@ -209,6 +228,28 @@ export default function MultiHeroViewer() {
     const nextTrainingMs = lastUpgradeMs + 12 * 60 * 60 * 1000; // 12 hours cooldown
 
     return now >= nextTrainingMs;
+  };
+
+  // Calculate training cost for a hero
+  const calculateTrainingCost = (level: number): number => {
+    // Training Cost: 24 hours worth of $HERO earnings at current level
+    const dailyEarning = (2000 * level) / (20 + level);
+    return dailyEarning;
+  };
+
+  // Check if hero is upgradable (unstaked and training cost < available balance)
+  const isHeroUpgradable = (hero: Hero): boolean => {
+    // Hero must be unstaked to be trainable
+    if (hero.stakedSince !== null) return false;
+
+    // Hero must be available for training (not in cooldown)
+    if (!isTrainingAvailable(hero.lastUpgrade)) return false;
+
+    // Calculate training cost
+    const trainingCost = calculateTrainingCost(hero.level);
+
+    // Check if wallet has enough balance
+    return trainingCost <= walletBalance;
   };
 
   // Toggle view mode
@@ -238,6 +279,8 @@ export default function MultiHeroViewer() {
         availabilityMatch = hero.stakedSince !== null;
       } else if (filterOption === "unstaked") {
         availabilityMatch = hero.stakedSince === null;
+      } else if (filterOption === "upgradable") {
+        availabilityMatch = isHeroUpgradable(hero);
       }
 
       return searchMatch && availabilityMatch;
@@ -264,6 +307,11 @@ export default function MultiHeroViewer() {
         const aEarnings = (2000 * a.level) / (20 + a.level);
         const bEarnings = (2000 * b.level) / (20 + b.level);
         return bEarnings - aEarnings;
+      } else if (sortOption === "training_cost") {
+        // Sort by training cost
+        const aCost = calculateTrainingCost(a.level);
+        const bCost = calculateTrainingCost(b.level);
+        return aCost - bCost;
       }
 
       // Default: sort by ID
@@ -327,96 +375,149 @@ export default function MultiHeroViewer() {
       )}
 
       {heroes.length > 0 && (
-        <div className="mb-6 bg-gray-800 p-4 rounded-lg border-2 border-yellow-400">
-          <div className="flex flex-wrap gap-4 items-center">
-            {/* Search */}
-            <div className="flex-1 min-w-[200px]">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by ID or name..."
-                className="w-full px-3 py-2 bg-gray-700 border border-yellow-400 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 text-white placeholder-gray-500"
-              />
-            </div>
-
-            {/* View mode toggle */}
+        <div className="mb-6 bg-gray-800 rounded-lg border-2 border-yellow-400 overflow-hidden">
+          <div
+            className="p-3 flex justify-between items-center cursor-pointer bg-gray-800 hover:bg-gray-700"
+            onClick={() => setFiltersCollapsed(!filtersCollapsed)}
+          >
+            <h2 className="font-bold text-yellow-400">Filter & Sort</h2>
             <div className="flex items-center space-x-2">
-              <button
-                onClick={toggleViewMode}
-                className="px-3 py-2 bg-gray-700 border border-yellow-400 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                title={
-                  viewMode === "grid"
-                    ? "Switch to list view"
-                    : "Switch to grid view"
-                }
-              >
-                {viewMode === "grid" ? (
+              <span className="text-sm text-yellow-400">
+                {`Showing ${filteredHeroes.length} of ${heroes.length} heroes`}
+              </span>
+              <button className="text-yellow-400 focus:outline-none">
+                {filtersCollapsed ? (
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
                   >
                     <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                      fillRule="evenodd"
+                      d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                      clipRule="evenodd"
                     />
                   </svg>
                 ) : (
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
                   >
                     <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                      fillRule="evenodd"
+                      d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"
+                      clipRule="evenodd"
                     />
                   </svg>
                 )}
               </button>
             </div>
-
-            {/* Sort */}
-            <div className="w-full sm:w-auto">
-              <select
-                value={sortOption}
-                onChange={(e) => setSortOption(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-yellow-400 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 text-white"
-              >
-                <option value="id">Sort by ID</option>
-                <option value="level">Sort by Level (High to Low)</option>
-                <option value="earnings">Sort by Earnings</option>
-                <option value="cooldown">Sort by Training Cooldown</option>
-              </select>
-            </div>
-
-            {/* Filter */}
-            <div className="w-full sm:w-auto">
-              <select
-                value={filterOption}
-                onChange={(e) => setFilterOption(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-yellow-400 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 text-white"
-              >
-                <option value="all">All Heroes</option>
-                <option value="available">Ready to Train</option>
-                <option value="cooldown">In Training Cooldown</option>
-                <option value="staked">Staked Heroes</option>
-                <option value="unstaked">Unstaked Heroes</option>
-              </select>
-            </div>
           </div>
 
-          <div className="mt-4 text-center text-sm text-yellow-400">
-            {`Showing ${filteredHeroes.length} of ${heroes.length} heroes`}
+          <div
+            className={`transition-all duration-300 ease-in-out overflow-hidden ${filtersCollapsed ? "max-h-0" : "max-h-screen"}`}
+          >
+            <div className="p-4">
+              <div className="flex flex-wrap gap-4 items-center">
+                {/* Search */}
+                <div className="flex-1 min-w-[200px]">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search by ID or name..."
+                    className="w-full px-3 py-2 bg-gray-700 border border-yellow-400 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 text-white placeholder-gray-500"
+                  />
+                </div>
+
+                {/* View mode toggle */}
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={toggleViewMode}
+                    className="px-3 py-2 bg-gray-700 border border-yellow-400 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                    title={
+                      viewMode === "grid"
+                        ? "Switch to list view"
+                        : "Switch to grid view"
+                    }
+                  >
+                    {viewMode === "grid" ? (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                {/* Sort */}
+                <div>
+                  <label className="block text-sm text-yellow-400 mb-1">
+                    Sort By
+                  </label>
+                  <select
+                    value={sortOption}
+                    onChange={(e) => setSortOption(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-yellow-400 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 text-white"
+                  >
+                    <option value="id">ID</option>
+                    <option value="level">Level (High to Low)</option>
+                    <option value="earnings">Earnings</option>
+                    <option value="cooldown">Training Cooldown</option>
+                    <option value="training_cost">Training Cost</option>
+                  </select>
+                </div>
+
+                {/* Filter */}
+                <div>
+                  <label className="block text-sm text-yellow-400 mb-1">
+                    Filter
+                  </label>
+                  <select
+                    value={filterOption}
+                    onChange={(e) => setFilterOption(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-yellow-400 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 text-white"
+                  >
+                    <option value="all">All Heroes</option>
+                    <option value="available">Ready to Train</option>
+                    <option value="cooldown">In Training Cooldown</option>
+                    <option value="staked">Staked Heroes</option>
+                    <option value="unstaked">Unstaked Heroes</option>
+                    <option value="upgradable">Upgradable Heroes</option>
+                  </select>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
