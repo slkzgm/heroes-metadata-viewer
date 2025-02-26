@@ -33,7 +33,7 @@ export async function GET(
                         balance {
                           balance
                         }
-                        heroes {
+                        heroes(first: 1000) {
                           id
                           tokenId
                           lastUpgrade
