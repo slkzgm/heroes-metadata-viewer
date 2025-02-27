@@ -70,6 +70,16 @@ export default function Navigation() {
             >
               Wallet
             </Link>
+            <Link
+              href="/training"
+              className={`block px-4 py-2 rounded-md ${
+                pathname === "/training"
+                  ? "bg-yellow-400 text-black"
+                  : "bg-gray-800 text-yellow-400 hover:bg-gray-700"
+              }`}
+            >
+              Training Stats
+            </Link>
           </div>
         )}
       </div>
@@ -95,6 +105,16 @@ export default function Navigation() {
           }`}
         >
           Wallet
+        </Link>
+        <Link
+          href="/training"
+          className={`px-4 py-2 rounded-md ${
+            pathname === "/training"
+              ? "bg-yellow-400 text-black"
+              : "bg-gray-800 text-yellow-400 hover:bg-gray-700"
+          }`}
+        >
+          Training Stats
         </Link>
       </div>
     </nav>
